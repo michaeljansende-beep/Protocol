@@ -1,4 +1,3 @@
-alert("app.js ist geladen");// Protokoll Recorder - Frontend (GitHub Pages)
 // API läuft z.B. auf Cloudflare Worker: https://xxx.workers.dev
 // Endpoints:
 //  - POST /api/createProtocol   (JSON: { meta, notes })
