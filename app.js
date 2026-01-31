@@ -181,7 +181,7 @@ el.btnGenerate.addEventListener("click", async () => {
 
     setBusy(true, "Erstelle Protokoll ...");
 
-    const resp = await fetch(apiUrl("/api/createProtocol"), {
+    const resp = await fetch(API_BASE + "/api/createProtocol", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
