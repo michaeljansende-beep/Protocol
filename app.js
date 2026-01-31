@@ -1,3 +1,4 @@
+const API_BASE = "https://muddy-resonance-b322.michael-jansen-de.workers.dev";
 // Protokoll Recorder - Frontend
 // Läuft auf GitHub Pages (nur statische Dateien). Die API muss separat deployed werden (Cloudflare Worker/Vercel).
 let mediaRecorder = null;
@@ -48,7 +49,7 @@ function setApiBase(v) {
 }
 
 function apiUrl(path) {
-  const base = getApiBase();
+  const base = API_BASE;
   if (!base) throw new Error("Bitte API-URL oben eintragen und speichern.");
   return base + path;
 }
