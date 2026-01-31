@@ -259,7 +259,7 @@ function init() {
     alert("API-URL gespeichert.");
   });
 
-  el.btnGenerate.addEventListener("click", createProtocol);
+  el.btnGenerate.addEventListener("click", () => alert("Button klickt"));
   el.btnReset.addEventListener("click", resetFields);
   el.btnCopy.addEventListener("click", copyResult);
 
