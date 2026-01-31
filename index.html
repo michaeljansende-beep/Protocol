@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Protokoll Recorder</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- pdf-lib (client-side PDF generation) -->
+  <script defer src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script defer src="pdf.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <h1>Protokoll Recorder</h1>
+      <div class="env">
+        <label for="apiBase">API-URL</label>
+        <input id="apiBase" type="url" placeholder="z.B. https://dein-worker.de" />
+        <button id="btnSaveApi">Speichern</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="card">
+      <h2>Rahmen</h2>
+      <div class="two">
+        <label>Datum <input id="date" type="date"></label>
+        <label>Uhrzeit <input id="time" type="time"></label>
+      </div>
+      <label>Ort <input id="location" type="text" placeholder="z.B. Karlsruhe"></label>
+      <label>Titel (optional) <input id="title" type="text" placeholder="Wenn leer: wird generiert"></label>
+
+      <label>Teilnehmer Kunde
+        <textarea id="participantsCustomer" rows="3" placeholder="- Herr ...&#10;- Frau ..."></textarea>
+      </label>
+
+      <label>Teilnehmer Sika / PCI / SCHÖNOX
+        <textarea id="participantsInternal" rows="3" placeholder="- ..."></textarea>
+      </label>
+      <p class="hint">Tipp: Namen je Zeile (mit oder ohne führendes "-").</p>
+    </section>
+
+    <section class="card">
+      <h2>Audio</h2>
+      <div class="row">
+        <button id="btnRecord">Aufnahme starten</button>
+        <button id="btnStop" disabled>Stop</button>
+        <button id="btnClearAudio" class="ghost" disabled>Audio löschen</button>
+      </div>
+      <audio id="player" controls></audio>
+      <div class="row">
+        <button id="btnTranscribe" disabled>Transkribieren (optional)</button>
+      </div>
+      <p class="hint">Auf iPhone/iPad wird WebM je nach Browser unterschiedlich unterstützt. Wenn Transkription nicht geht: einfach Textnotizen nutzen.</p>
+    </section>
+
+    <section class="card">
+      <h2>Notizen</h2>
+      <textarea id="notes" rows="12" placeholder="Stichpunkte / Rohnotizen ..."></textarea>
+      <div class="row">
+        <button id="btnGenerate">Protokoll erstellen</button>
+        <button id="btnReset" class="ghost">Felder leeren</button>
+      </div>
+      <p class="hint">Regeln: keine Emojis, keine Sternchen, Bulletpoints mit "-" (kurzer Bindestrich), nichts dazuerfinden.</p>
+    </section>
+
+    <section class="card">
+      <h2>Ergebnis</h2>
+      <textarea id="result" rows="16" readonly></textarea>
+      <div class="row">
+        <button id="btnCopy" disabled>Text kopieren</button>
+        <button id="btnPDF" disabled>PDF erstellen</button>
+      </div>
+      <p class="hint">PDF ist im Stil des Referenzdokuments aufgebaut: Datum oben, Titel, Teilnehmer-Blöcke, Abschnitte, Task-Board als Tabelle.</p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <small>Lokale App (GitHub Pages) + API (Cloudflare Worker/Vercel) - API-Key bleibt serverseitig.</small>
+  </footer>
+</body>
+</html>
