@@ -1,296 +1,221 @@
-// PDF-Erzeugung mit pdf-lib
-// Stil orientiert sich am Referenz-PDF: Datum oben, Titel, Teilnehmer-Blöcke, Abschnitte, Task-Board Tabelle.
+/* pdf.js – Protokoll Recorder
+   Voraussetzungen:
+   - pdf-lib ist in index.html eingebunden:
+     <script defer src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+   - Diese Datei ist danach eingebunden:
+     <script defer src="pdf.js"></script>
 
-(function(){
-  const { PDFDocument, StandardFonts, rgb } = window.PDFLib || {};
-  if (!PDFDocument) {
-    console.warn("pdf-lib not loaded yet.");
-  }
+   Funktion:
+   - aktiviert den Button #btnPDF sobald #result Text enthält
+   - erzeugt eine einfache, saubere PDF aus meta + resultText
+*/
 
-  const COLORS = {
-    black: rgb(0,0,0),
-    greyText: rgb(0.25,0.28,0.32),
-    lightGrey: rgb(0.93,0.94,0.95),
-    line: rgb(0.82,0.84,0.86),
+(function () {
+  const $ = (id) => document.getElementById(id);
+
+  const el = {
+    btnPDF: $("btnPDF"),
+    result: $("result"),
+    date: $("date"),
+    time: $("time"),
+    location: $("location"),
+    title: $("title"),
+    participantsCustomer: $("participantsCustomer"),
+    participantsInternal: $("participantsInternal"),
   };
 
-  function wrapText(text, font, size, maxWidth) {
-    const words = (text || "").split(/\s+/).filter(Boolean);
-    const lines = [];
-    let line = "";
-    for (const w of words) {
-      const test = line ? (line + " " + w) : w;
-      const width = font.widthOfTextAtSize(test, size);
-      if (width <= maxWidth) {
-        line = test;
-      } else {
-        if (line) lines.push(line);
-        line = w;
-      }
-    }
-    if (line) lines.push(line);
-    return lines;
+  function normalizeList(text) {
+    return (text || "")
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => s.replace(/^\-\s*/, ""));
   }
 
-  function parseProtocol(protocolText){
-    // Expected format from backend:
-    // Title
-    //
-    // Teilnehmer Kunde:
-    // - ...
-    // Teilnehmer Sika / PCI / SCHÖNOX:
-    // - ...
-    //
-    // Abschnitt
-    // - bullet
-    //
-    // Task-Board
-    // | Aufgabe | Verantwortlich | Status |
-    // | --- | --- | --- |
-    // | ... | ... | ... |
-    const lines = (protocolText || "").split(/\r?\n/);
-    const blocks = [];
-    let i = 0;
-
-    // Title = first non-empty line
-    while (i < lines.length && !lines[i].trim()) i++;
-    const title = (i < lines.length) ? lines[i].trim() : "";
-    i++;
-
-    // Collect remaining into sections by headings and special taskboard
-    let current = null;
-
-    function pushCurrent(){
-      if (current) blocks.push(current);
-      current = null;
-    }
-
-    for (; i < lines.length; i++) {
-      const raw = lines[i];
-      const t = raw.trim();
-      if (!t) continue;
-
-      if (/^Task-Board\b/i.test(t)) {
-        pushCurrent();
-        // parse markdown table starting next lines
-        const tableLines = [];
-        for (let j = i+1; j < lines.length; j++) {
-          const tt = lines[j].trim();
-          if (!tt) continue;
-          if (!tt.startsWith("|")) break;
-          tableLines.push(tt);
-          i = j;
-        }
-        const rows = [];
-        if (tableLines.length >= 2) {
-          // header = tableLines[0], sep = tableLines[1]
-          for (let k = 2; k < tableLines.length; k++) {
-            const cols = tableLines[k].split("|").map(x=>x.trim()).filter(Boolean);
-            if (cols.length >= 3) rows.push(cols.slice(0,3));
-          }
-        }
-        blocks.push({ type:"taskboard", rows });
-        continue;
-      }
-
-      // headings: end with ":" OR no bullet prefix and short-ish
-      const isHeading = (!t.startsWith("-") && !t.startsWith("•") && !t.startsWith("|"));
-      if (isHeading) {
-        pushCurrent();
-        current = { type:"section", heading: t, bullets: [] };
-        continue;
-      }
-
-      // bullets
-      const bullet = t.replace(/^[-•\u2022]\s*/, "- ");
-      if (!current) current = { type:"section", heading:"", bullets: [] };
-      current.bullets.push(bullet);
-    }
-    pushCurrent();
-    return { title, blocks };
+  function safeMeta() {
+    return {
+      date: el.date?.value || "",
+      time: el.time?.value || "",
+      location: (el.location?.value || "").trim(),
+      title: (el.title?.value || "").trim(),
+      participantsCustomer: normalizeList(el.participantsCustomer?.value),
+      participantsInternal: normalizeList(el.participantsInternal?.value),
+    };
   }
 
-  async function makePDF({ meta, protocolText }) {
-    const pdfDoc = await PDFDocument.create();
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  function enablePdfButtonIfPossible() {
+    if (!el.btnPDF || !el.result) return;
+    const hasText = (el.result.value || "").trim().length > 0;
+    el.btnPDF.disabled = !hasText;
+  }
 
-    const pageSize = { width: 595.28, height: 841.89 }; // A4 portrait in points
-    let page = pdfDoc.addPage([pageSize.width, pageSize.height]);
+  // Öffnet PDF in neuem Tab (iOS: von dort teilen/speichern)
+  function openPdfBlob(blob) {
+    const url = URL.createObjectURL(blob);
+    // iOS Safari: neuer Tab ist am zuverlässigsten
+    window.open(url, "_blank");
+    // URL später freigeben
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
 
-    const margin = 48;
-    const contentWidth = pageSize.width - margin*2;
+  // Zeilenumbruch-Handling
+  function splitLines(text) {
+    return (text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  }
 
-    let y = pageSize.height - margin;
-
-    function ensureSpace(needed){
-      if (y - needed < margin) {
-        page = pdfDoc.addPage([pageSize.width, pageSize.height]);
-        y = pageSize.height - margin;
-      }
-    }
-
-    function drawLine(){
-      page.drawLine({
-        start: { x: margin, y: y },
-        end: { x: margin + contentWidth, y: y },
-        thickness: 1,
-        color: COLORS.line
-      });
-    }
-
-    function drawText(text, size=11, bold=false, color=COLORS.black, x=margin){
-      const f = bold ? fontBold : font;
-      page.drawText(text, { x, y, size, font: f, color });
-      y -= (size + 6);
-    }
-
-    function drawWrapped(text, size=11, bold=false, indent=0){
-      const f = bold ? fontBold : font;
-      const maxW = contentWidth - indent;
-      const lines = wrapText(text, f, size, maxW);
-      for (const ln of lines) {
-        ensureSpace(size + 10);
-        page.drawText(ln, { x: margin + indent, y, size, font: f, color: COLORS.black });
-        y -= (size + 5);
-      }
-    }
-
-    function drawSectionHeading(text){
-      ensureSpace(26);
-      page.drawText(text, { x: margin, y, size: 12, font: fontBold, color: COLORS.black });
-      y -= 18;
-    }
-
-    function drawBullets(bullets){
-      for (const b of bullets) {
-        // "- " already; indent after dash
-        drawWrapped(b, 11, false, 0);
-      }
-      y -= 4;
-    }
-
-    function drawParticipants(label, people){
-      ensureSpace(18);
-      drawText(label, 11, true, COLORS.black);
-      if (!people || !people.length) {
-        drawText("- Unklar", 11, false, COLORS.black);
+  async function generatePdf() {
+    try {
+      if (!el.result) {
+        alert("Ergebnisfeld fehlt.");
         return;
       }
-      for (const p of people) {
-        drawText("- " + p, 11, false, COLORS.black);
+      const text = (el.result.value || "").trim();
+      if (!text) {
+        alert("Kein Ergebnis vorhanden.");
+        return;
       }
-    }
 
-    // Header: Date line
-    const dateLine = (meta?.date || "").trim();
-    if (dateLine) {
-      drawText(dateLine, 11, false, COLORS.black);
+      if (typeof PDFLib === "undefined" || !PDFLib.PDFDocument) {
+        alert("pdf-lib ist nicht geladen. Bitte Seite neu laden.");
+        return;
+      }
+
+      const meta = safeMeta();
+
+      const { PDFDocument, StandardFonts, rgb } = PDFLib;
+      const pdfDoc = await PDFDocument.create();
+      const page = pdfDoc.addPage([595.28, 841.89]); // A4 in points
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+      const margin = 40;
+      let y = 841.89 - margin;
+
+      function drawText(line, size = 11, bold = false) {
+        const f = bold ? fontBold : font;
+        page.drawText(line, { x: margin, y, size, font: f, color: rgb(0, 0, 0) });
+        y -= size + 4;
+      }
+
+      function drawDivider() {
+        y -= 6;
+        page.drawLine({
+          start: { x: margin, y },
+          end: { x: 595.28 - margin, y },
+          thickness: 1,
+          color: rgb(0.8, 0.8, 0.8),
+        });
+        y -= 10;
+      }
+
+      // Kopf
+      const headerTitle = meta.title ? meta.title : "Gesprächsprotokoll";
+      drawText(headerTitle, 16, true);
+
+      const dt = [meta.date, meta.time].filter(Boolean).join(" ");
+      const loc = meta.location ? `Ort: ${meta.location}` : "";
+      const line2 = [dt, loc].filter(Boolean).join(" | ");
+      if (line2) drawText(line2, 11, false);
+
+      drawDivider();
+
+      // Teilnehmer
+      const cust = meta.participantsCustomer?.length
+        ? `Teilnehmer Kunde: ${meta.participantsCustomer.join(", ")}`
+        : "Teilnehmer Kunde: -";
+      const internal = meta.participantsInternal?.length
+        ? `Teilnehmer Sika / PCI / SCHÖNOX: ${meta.participantsInternal.join(", ")}`
+        : "Teilnehmer Sika / PCI / SCHÖNOX: -";
+
+      drawText(cust, 11, true);
+      drawText(internal, 11, true);
+
+      drawDivider();
+
+      // Inhalt (Ergebnis)
+      drawText("Zusammenfassung", 13, true);
       y -= 4;
-      drawLine();
-      y -= 14;
-    }
 
-    // Title: either meta.title or parsed title
-    const parsed = parseProtocol(protocolText);
-    const title = (meta?.title || "").trim() || parsed.title || "Gesprächsprotokoll";
-    drawText(title, 14, true, COLORS.black);
-    y -= 6;
+      const lines = splitLines(text);
 
-    // Location/time (small line)
-    const pieces = [];
-    if ((meta?.location || "").trim()) pieces.push(meta.location.trim());
-    if ((meta?.time || "").trim()) pieces.push(meta.time.trim());
-    if (pieces.length) {
-      drawText(pieces.join(" - "), 10, false, COLORS.greyText);
-      y -= 6;
-    }
+      // Word-wrap grob (pdf-lib hat kein automatisches wrap)
+      const maxWidth = 595.28 - margin * 2;
+      const size = 11;
 
-    // Participants
-    drawParticipants("Teilnehmer Kunde:", meta?.participantsCustomer || []);
-    y -= 4;
-    drawParticipants("Teilnehmer Sika / PCI / SCHÖNOX:", meta?.participantsInternal || []);
-    y -= 10;
+      function wrapLine(line) {
+        // sehr einfache Worttrennung nach Leerzeichen
+        const words = (line || "").split(" ");
+        const out = [];
+        let current = "";
 
-    // Content blocks
-    for (const b of parsed.blocks) {
-      if (b.type === "taskboard") {
-        // Task-Board table
-        drawSectionHeading("Task-Board");
-        ensureSpace(140);
-
-        const col1 = contentWidth * 0.60;
-        const col2 = contentWidth * 0.25;
-        const col3 = contentWidth * 0.15;
-        const rowHMin = 18;
-
-        const headers = ["Aufgabe", "Verantwortlich", "Status"];
-        const x1 = margin, x2 = margin + col1, x3 = margin + col1 + col2;
-
-        // header background
-        const headerYTop = y + 6;
-        page.drawRectangle({ x: margin, y: headerYTop - 16, width: contentWidth, height: 18, color: COLORS.lightGrey, borderColor: COLORS.line, borderWidth: 1 });
-        page.drawText(headers[0], { x: x1 + 4, y: headerYTop - 13, size: 10, font: fontBold, color: COLORS.black });
-        page.drawText(headers[1], { x: x2 + 4, y: headerYTop - 13, size: 10, font: fontBold, color: COLORS.black });
-        page.drawText(headers[2], { x: x3 + 4, y: headerYTop - 13, size: 10, font: fontBold, color: COLORS.black });
-        y -= 22;
-
-        const rows = (b.rows || []);
-        if (!rows.length) {
-          drawText("- Keine Aufgaben erfasst", 11, false, COLORS.black);
-          y -= 6;
-        } else {
-          for (const r of rows) {
-            const c1 = r[0] || "";
-            const c2 = r[1] || "";
-            const c3 = r[2] || "";
-
-            const w1 = wrapText(c1, font, 10, col1 - 10);
-            const w2 = wrapText(c2, font, 10, col2 - 10);
-            const w3 = wrapText(c3, font, 10, col3 - 10);
-            const maxLines = Math.max(w1.length, w2.length, w3.length, 1);
-            const rowH = Math.max(rowHMin, 12 + maxLines * 12);
-
-            ensureSpace(rowH + 10);
-
-            // row rect + vertical separators
-            page.drawRectangle({ x: margin, y: y - rowH + 6, width: contentWidth, height: rowH, borderColor: COLORS.line, borderWidth: 1, color: rgb(1,1,1) });
-            page.drawLine({ start: {x:x2, y:y - rowH + 6}, end:{x:x2, y:y + 6}, thickness:1, color:COLORS.line });
-            page.drawLine({ start: {x:x3, y:y - rowH + 6}, end:{x:x3, y:y + 6}, thickness:1, color:COLORS.line });
-
-            // draw cell text
-            for (let li=0; li<maxLines; li++){
-              const yy = y - 10 - li*12;
-              if (w1[li]) page.drawText(w1[li], { x: x1 + 4, y: yy, size: 10, font, color: COLORS.black });
-              if (w2[li]) page.drawText(w2[li], { x: x2 + 4, y: yy, size: 10, font, color: COLORS.black });
-              if (w3[li]) page.drawText(w3[li], { x: x3 + 4, y: yy, size: 10, font, color: COLORS.black });
-            }
-
-            y -= (rowH + 4);
+        for (const w of words) {
+          const test = current ? current + " " + w : w;
+          const width = font.widthOfTextAtSize(test, size);
+          if (width <= maxWidth) {
+            current = test;
+          } else {
+            if (current) out.push(current);
+            current = w;
           }
         }
-        y -= 6;
-        continue;
+        if (current) out.push(current);
+        if (out.length === 0) out.push("");
+        return out;
       }
 
-      // normal section
-      if (b.heading) drawSectionHeading(b.heading);
-      if (b.bullets && b.bullets.length) drawBullets(b.bullets);
+      for (const line of lines) {
+        // Seitenumbruch
+        if (y < margin + 60) {
+          // neue Seite
+          const newPage = pdfDoc.addPage([595.28, 841.89]);
+          // neue Seite braucht eigene draw-Funktionen
+          // wir “wechseln” simpel: ab hier zeichnen wir auf newPage
+          // (kleiner Trick: überschreiben page-Referenz)
+          // eslint-disable-next-line no-global-assign
+          y = 841.89 - margin;
+
+          // copy refs
+          // page variable is const, daher nutzen wir ein kleines Hackchen:
+          // Wir zeichnen ab jetzt auf newPage über eine Closure:
+          const drawOn = newPage;
+
+          const oldDrawText = drawText;
+          drawText = function (l, s = 11, b = false) {
+            const f = b ? fontBold : font;
+            drawOn.drawText(l, { x: margin, y, size: s, font: f, color: rgb(0, 0, 0) });
+            y -= s + 4;
+          };
+        }
+
+        const wrapped = wrapLine(line);
+        for (const wline of wrapped) {
+          // Bullet optisch etwas einrücken wenn Zeile mit "-" beginnt
+          const isBullet = wline.trim().startsWith("-");
+          const x = isBullet ? margin + 10 : margin;
+          page.drawText(wline, { x, y, size, font, color: rgb(0, 0, 0) });
+          y -= size + 4;
+        }
+      }
+
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      openPdfBlob(blob);
+    } catch (e) {
+      alert("PDF Fehler: " + (e && e.message ? e.message : String(e)));
     }
-
-    const pdfBytes = await pdfDoc.save();
-    const blob = new Blob([pdfBytes], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    const safeTitle = (title || "Protokoll").replace(/[^a-z0-9\-_ ]/gi, "").trim().replace(/\s+/g, "_");
-    a.href = url;
-    a.download = `${safeTitle}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 5000);
   }
 
-  window.makeProtocolPDF = makePDF;
+  function bind() {
+    if (!el.btnPDF || !el.result) return;
+
+    // Button aktivieren/deaktivieren je nach Ergebnis
+    enablePdfButtonIfPossible();
+    el.result.addEventListener("input", enablePdfButtonIfPossible);
+
+    // Klick-Handler
+    el.btnPDF.addEventListener("click", generatePdf);
+  }
+
+  // warten bis DOM + pdf-lib da sind
+  document.addEventListener("DOMContentLoaded", bind);
 })();
