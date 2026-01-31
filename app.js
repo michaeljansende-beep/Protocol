@@ -1,8 +1,7 @@
-// API läuft z.B. auf Cloudflare Worker: https://xxx.workers.dev
-// Endpoints:
-//  - POST /api/createProtocol   (JSON: { meta, notes })
-//  - POST /api/transcribe       (multipart/form-data: audio)
-//  - GET  /ping                 (optional)
+// Protokoll Recorder – app.js (Safari-freundlich)
+// - Protokoll via Worker: POST /api/createProtocol
+// - Transkription optional via Worker: POST /api/transcribe (FormData: "audio")
+// Hinweis iOS/Safari: MediaRecorder ist oft NICHT verfügbar. Dann zeigen wir eine klare Meldung.
 
 let mediaRecorder = null;
 let audioChunks = [];
@@ -36,12 +35,17 @@ const el = {
   btnPDF: $("btnPDF"),
 };
 
+// ---------- Helpers ----------
 function normalizeApiBase(v) {
   v = (v || "").trim();
   if (!v) return "";
-  // trailing slash entfernen
-  v = v.replace(/\/+$/, "");
-  return v;
+  return v.replace(/\/+$/, "");
+}
+
+function setApiBase(v) {
+  const base = normalizeApiBase(v);
+  if (el.apiBase) el.apiBase.value = base;
+  if (base) localStorage.setItem("protocol_api_base", base);
 }
 
 function getApiBase() {
@@ -52,15 +56,8 @@ function getApiBase() {
   return fromStore;
 }
 
-function setApiBase(v) {
-  const base = normalizeApiBase(v);
-  if (el.apiBase) el.apiBase.value = base;
-  if (base) localStorage.setItem("protocol_api_base", base);
-}
-
 function apiUrl(path) {
   const base = getApiBase();
-  // path muss mit "/" starten
   if (!path.startsWith("/")) path = "/" + path;
   return base + path;
 }
@@ -70,27 +67,42 @@ function normalizeList(text) {
     .split("\n")
     .map((s) => s.trim())
     .filter(Boolean)
-    .map((s) => s.replace(/^\-\s*/, "")); // führendes "- " entfernen
+    .map((s) => s.replace(/^\-\s*/, ""));
+}
+
+function enableResultButtons() {
+  const hasText = (el.result.value || "").trim().length > 0;
+  el.btnCopy.disabled = !hasText;
+  // PDF-Button wird von pdf.js zusätzlich überwacht – wir aktivieren ihn hier trotzdem.
+  el.btnPDF.disabled = !hasText;
 }
 
 function setBusy(isBusy, msg) {
-  if (el.btnGenerate) el.btnGenerate.disabled = isBusy;
-  if (el.btnTranscribe) el.btnTranscribe.disabled = isBusy || !audioBlob;
-  if (el.btnReset) el.btnReset.disabled = isBusy;
+  el.btnGenerate.disabled = isBusy;
+  el.btnReset.disabled = isBusy;
 
-  if (isBusy) {
-    if (el.result) el.result.value = (msg || "Bitte warten ...");
-  }
+  // Transcribe nur, wenn Audio vorhanden UND nicht busy
+  el.btnTranscribe.disabled = isBusy || !audioBlob;
+
+  if (isBusy && el.result) el.result.value = msg || "Bitte warten ...";
+}
+
+// Safari / iOS Check
+function isIOSSafari() {
+  const ua = navigator.userAgent || "";
+  const isIOS = /iPad|iPhone|iPod/.test(ua);
+  const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+  return isIOS && isSafari;
 }
 
 async function safeJson(resp) {
   const ct = (resp.headers.get("content-type") || "").toLowerCase();
   if (ct.includes("application/json")) return await resp.json();
-  // falls Worker HTML/Text liefert:
   const t = await resp.text();
   return { error: t || "Unbekannte Antwort (kein JSON)" };
 }
 
+// ---------- Protokoll ----------
 async function createProtocol() {
   try {
     const base = getApiBase();
@@ -103,14 +115,14 @@ async function createProtocol() {
 
     const payload = {
       meta: {
-        date: el.date?.value || "",
-        time: el.time?.value || "",
-        location: (el.location?.value || "").trim(),
-        title: (el.title?.value || "").trim(),
-        participantsCustomer: normalizeList(el.participantsCustomer?.value),
-        participantsInternal: normalizeList(el.participantsInternal?.value),
+        date: el.date.value || "",
+        time: el.time.value || "",
+        location: (el.location.value || "").trim(),
+        title: (el.title.value || "").trim(),
+        participantsCustomer: normalizeList(el.participantsCustomer.value),
+        participantsInternal: normalizeList(el.participantsInternal.value),
       },
-      notes: (el.notes?.value || "").trim(),
+      notes: (el.notes.value || "").trim(),
     };
 
     const resp = await fetch(apiUrl("/api/createProtocol"), {
@@ -125,15 +137,11 @@ async function createProtocol() {
       throw new Error(data.error || "Erstellung fehlgeschlagen");
     }
 
-    // Worker kann z.B. { protocolText: "..." } oder { text: "..." } liefern
-    const text = (data.protocolText || data.text || "").trim();
-    if (!text) {
-      throw new Error("Antwort war leer (kein protocolText/text).");
-    }
+    const text = (data.protocolText || data.text || "").toString().trim();
+    if (!text) throw new Error("Antwort war leer.");
 
     el.result.value = text;
-    el.btnCopy.disabled = !text;
-    el.btnPDF.disabled = !text;
+    enableResultButtons();
   } catch (e) {
     alert(e.message || String(e));
   } finally {
@@ -150,25 +158,61 @@ function resetFields() {
   el.participantsInternal.value = "";
   el.notes.value = "";
   el.result.value = "";
-  el.btnCopy.disabled = true;
-  el.btnPDF.disabled = true;
+  enableResultButtons();
 }
 
+// ---------- Copy ----------
 async function copyResult() {
   try {
-    const t = el.result.value || "";
+    const t = (el.result.value || "").trim();
     if (!t) return;
-    await navigator.clipboard.writeText(t);
+
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(t);
+      alert("In Zwischenablage kopiert.");
+      return;
+    }
+
+    // Fallback
+    el.result.focus();
+    el.result.select();
+    document.execCommand("copy");
     alert("In Zwischenablage kopiert.");
   } catch (e) {
     alert("Kopieren nicht möglich: " + (e.message || String(e)));
   }
 }
 
-// --- Audio (optional) ---
+// ---------- Audio ----------
+function audioCapabilityMessage() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return "Audioaufnahme geht hier nicht: getUserMedia wird nicht unterstützt.";
+  }
+  if (typeof MediaRecorder === "undefined") {
+    // iOS Safari häufig
+    if (isIOSSafari()) {
+      return (
+        "Safari auf iPhone/iPad unterstützt die Audioaufnahme per Web-App oft nicht (MediaRecorder fehlt).\n\n" +
+        "Workaround:\n" +
+        "- iOS Diktierfunktion in Notizen nutzen und Text hier einfügen\n" +
+        "- oder Sprachmemo aufnehmen und als Datei später transkribieren"
+      );
+    }
+    return "Audioaufnahme geht hier nicht: MediaRecorder wird nicht unterstützt.";
+  }
+  return "";
+}
+
 async function startRecording() {
+  const msg = audioCapabilityMessage();
+  if (msg) {
+    alert(msg);
+    return;
+  }
+
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
     audioChunks = [];
     audioBlob = null;
 
@@ -176,19 +220,25 @@ async function startRecording() {
     mediaRecorder.ondataavailable = (ev) => {
       if (ev.data && ev.data.size > 0) audioChunks.push(ev.data);
     };
-    mediaRecorder.onstop = () => {
-      audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || "audio/webm" });
-      el.player.src = URL.createObjectURL(audioBlob);
-      el.btnTranscribe.disabled = false;
-      el.btnClearAudio.disabled = false;
-      el.btnStop.disabled = true;
-      el.btnRecord.disabled = false;
 
-      // tracks stoppen
-      stream.getTracks().forEach((t) => t.stop());
+    mediaRecorder.onstop = () => {
+      try {
+        audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+        el.player.src = URL.createObjectURL(audioBlob);
+
+        el.btnTranscribe.disabled = false;
+        el.btnClearAudio.disabled = false;
+      } finally {
+        el.btnStop.disabled = true;
+        el.btnRecord.disabled = false;
+
+        // Tracks stoppen
+        stream.getTracks().forEach((t) => t.stop());
+      }
     };
 
     mediaRecorder.start();
+
     el.btnRecord.disabled = true;
     el.btnStop.disabled = false;
     el.btnClearAudio.disabled = true;
@@ -199,7 +249,11 @@ async function startRecording() {
 }
 
 function stopRecording() {
-  if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+  try {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+  } catch (e) {
+    alert("Stop nicht möglich: " + (e.message || String(e)));
+  }
 }
 
 function clearAudio() {
@@ -207,10 +261,12 @@ function clearAudio() {
   audioBlob = null;
   el.player.removeAttribute("src");
   el.player.load();
+
   el.btnTranscribe.disabled = true;
   el.btnClearAudio.disabled = true;
 }
 
+// ---------- Transcribe ----------
 async function transcribe() {
   try {
     const base = getApiBase();
@@ -218,7 +274,10 @@ async function transcribe() {
       alert("Bitte oben eine API-URL eintragen und speichern.");
       return;
     }
-    if (!audioBlob) return;
+    if (!audioBlob) {
+      alert("Kein Audio vorhanden.");
+      return;
+    }
 
     setBusy(true, "Transkribiere Audio ...");
 
@@ -227,13 +286,15 @@ async function transcribe() {
 
     const resp = await fetch(apiUrl("/api/transcribe"), { method: "POST", body: fd });
     const data = await safeJson(resp);
+
     if (!resp.ok) throw new Error(data.error || "Transkription fehlgeschlagen");
 
-    const transcript = (data.transcript || data.text || "").trim();
+    const transcript = (data.transcript || data.text || "").toString().trim();
     if (!transcript) {
       alert("Transkription war leer.");
       return;
     }
+
     el.notes.value = transcript + "\n\n" + (el.notes.value || "");
   } catch (e) {
     alert(e.message || String(e));
@@ -242,15 +303,16 @@ async function transcribe() {
   }
 }
 
-// --- Init ---
+// ---------- Init ----------
 function init() {
-  // gespeicherte API URL reinladen
+  // gespeicherte API URL laden
   const stored = normalizeApiBase(localStorage.getItem("protocol_api_base") || "");
   if (stored) el.apiBase.value = stored;
 
+  enableResultButtons();
+
   el.btnSaveApi.addEventListener("click", () => {
-    const v = el.apiBase.value;
-    const norm = normalizeApiBase(v);
+    const norm = normalizeApiBase(el.apiBase.value);
     if (!norm) {
       alert("Bitte eine gültige API-URL eingeben.");
       return;
@@ -263,13 +325,18 @@ function init() {
   el.btnReset.addEventListener("click", resetFields);
   el.btnCopy.addEventListener("click", copyResult);
 
+  // Audio Buttons
   el.btnRecord.addEventListener("click", startRecording);
   el.btnStop.addEventListener("click", stopRecording);
   el.btnClearAudio.addEventListener("click", clearAudio);
   el.btnTranscribe.addEventListener("click", transcribe);
 
-  // PDF Button bleibt wie gehabt (pdf.js kümmert sich darum)
-  // Wenn pdf.js eine Funktion erwartet, bleibt das kompatibel.
+  // Hinweis für Safari/iOS sofort sichtbar machen, wenn Audio nicht geht
+  const msg = audioCapabilityMessage();
+  if (msg) {
+    // Nicht dauernd nerven – nur einmal beim Start
+    console.log(msg);
+  }
 }
 
 document.addEventListener("DOMContentLoaded", init);
