@@ -1,0 +1,6 @@
+/* Only layout tweak: Uhrzeit-Feld leicht nach links */
+.time-field {
+  margin-left: 0.5rem;
+}
+
+/* existing styles remain unchanged */
