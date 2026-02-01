@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Protokoll Recorder</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <script defer src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <h1>Protokoll Recorder</h1>
+  <div class="subtitle">Gesprächsdaten → Audio → Notizen → Protokoll</div>
+</header>
+
+<main class="grid">
+  <section class="card">
+    <h2>Gesprächsdaten</h2>
+    <div class="row two">
+      <label>Datum<input id="date" type="date"></label>
+      <label>Uhrzeit<input id="time" type="time"></label>
+    </div>
+    <label>Ort<input id="location" type="text" placeholder="z.B. Karlsruhe"></label>
+    <label>Titel (optional)<input id="title" type="text" placeholder="Wenn leer: wird generiert"></label>
+    <label>Teilnehmer Kunde<textarea id="participantsCustomer" rows="3"></textarea></label>
+    <label>Teilnehmer Sika / PCI / SCHÖNOX<textarea id="participantsInternal" rows="3"></textarea></label>
+
+    <h2 class="mt">Audio</h2>
+    <div class="audio-row">
+      <button id="btnRecord" class="record">● Aufnahme starten</button>
+      <span id="timer">00:00</span>
+    </div>
+    <audio id="player" controls></audio>
+    <input id="audioFile" type="file" accept="audio/m4a,audio/mp4,audio/wav,audio/webm"/>
+    <button id="btnTranscribe">Transkribieren</button>
+  </section>
+
+  <section class="card">
+    <h2>Notizen</h2>
+    <textarea id="notes" rows="14" placeholder="Transkript + eigene Ergänzungen"></textarea>
+    <div class="row">
+      <button id="btnGenerate">Protokoll erstellen</button>
+      <button id="btnReset" class="ghost">Felder leeren</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Ergebnis</h2>
+    <textarea id="result" rows="18" readonly></textarea>
+    <div class="row spaced">
+      <button id="btnCopy">Text kopieren</button>
+      <button id="btnPDF">PDF erstellen</button>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="api-bar">
+    <label>API‑URL</label>
+    <input id="apiBase" type="url"/>
+    <button id="btnSaveApi">Speichern</button>
+  </div>
+  <small>Lokale App (GitHub Pages) + API (Cloudflare Worker)</small>
+</footer>
+</body>
+</html>
