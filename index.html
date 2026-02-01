@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Protokoll Recorder</title>
+
+  <!-- PWA / Web App -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0b0f16" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Libraries -->
+  <script defer src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script defer src="pdf.js"></script>
+  <script defer src="app.js"></script>
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <h1>Protokoll Recorder</h1>
+      <div class="subtitle">Gesprächspartner → Audio → Notizen → Protokoll</div>
+    </div>
+    <button class="close-btn" onclick="window.close()">×</button>
+  </header>
+
+  <!-- Main Grid -->
+  <main class="app-grid">
+
+    <!-- Gesprächspartner -->
+    <section class="card">
+      <h2>Gesprächspartner</h2>
+
+      <div class="row two">
+        <label>Datum
+          <input id="date" type="date" />
+        </label>
+        <label>Uhrzeit
+          <input id="time" type="time" />
+        </label>
+      </div>
+
+      <label>Ort
+        <input id="location" type="text" placeholder="z. B. Karlsruhe" />
+      </label>
+
+      <label>Titel (optional)
+        <input id="title" type="text" placeholder="Wenn leer: wird generiert" />
+      </label>
+
+      <label>Teilnehmer Kunde
+        <textarea id="participantsCustomer" rows="3" placeholder="- Herr …&#10;- Frau …"></textarea>
+      </label>
+
+      <label>Teilnehmer Sika / PCI / SCHÖNOX
+        <textarea id="participantsInternal" rows="3" placeholder="- …"></textarea>
+      </label>
+
+      <p class="hint">Tipp: Namen je Zeile (mit oder ohne führendes „-“).</p>
+    </section>
+
+    <!-- Notizen -->
+    <section class="card">
+      <h2>Notizen</h2>
+      <textarea id="notes" rows="12" placeholder="Transkript oder eigene Notizen …"></textarea>
+
+      <div class="row">
+        <button id="btnGenerate">Protokoll erstellen</button>
+        <button id="btnReset" class="ghost">Felder leeren</button>
+      </div>
+
+      <p class="hint">
+        Regeln: keine Emojis, keine Sternchen, Bulletpoints mit „-“ (kurzer Bindestrich), nichts dazuerfinden.
+      </p>
+    </section>
+
+    <!-- Audio -->
+    <section class="card">
+      <h2>Audio</h2>
+
+      <div class="row spaced">
+        <button id="btnRecord" class="record">● Aufnahme starten</button>
+        <span id="recordTimer">00:00</span>
+        <button id="btnClearAudio" class="ghost" disabled>Audio löschen</button>
+      </div>
+
+      <audio id="player" controls></audio>
+
+      <div class="row spaced">
+        <label class="file-upload">
+          iOS‑Sprachnotiz auswählen
+          <input id="fileInput" type="file" accept="audio/*,.m4a" />
+        </label>
+        <button id="btnTranscribe">Transkribieren → Notizen</button>
+      </div>
+
+      <p class="hint">
+        Hinweis: Aufnahme funktioniert je nach iOS/Safari-Version.
+        Alternativ eine Sprachnotiz (z. B. .m4a) auswählen und transkribieren.
+      </p>
+    </section>
+
+    <!-- Ergebnis -->
+    <section class="card">
+      <h2>Ergebnis</h2>
+      <textarea id="result" rows="14" readonly></textarea>
+
+      <div class="row">
+        <button id="btnCopy">Text kopieren</button>
+        <button id="btnPDF">PDF erstellen</button>
+      </div>
+
+      <p class="hint">PDF: einfache, saubere Darstellung (Text aus Ergebnis).</p>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <div class="api-row">
+      <label>API‑URL</label>
+      <input id="apiBase" type="url" placeholder="https://…workers.dev" />
+      <button id="btnSaveApi">Speichern</button>
+    </div>
+    <small>
+      Lokale App (GitHub Pages) + API (Cloudflare Worker) – API‑Key bleibt serverseitig.
+    </small>
+  </footer>
+</body>
+</html>
