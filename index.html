@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Protokoll Recorder</title>
+  <link rel="stylesheet" href="styles.css" />
+    <!-- pdf-lib (client-side PDF generation) -->
+  <script defer src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script defer src="pdf.js"></script>
+  <script defer src="app.js"></script>
+
+  <!-- Fix: nur das Uhrzeit-Feld (Layout v7 bleibt unverändert) -->
+  <style>
+    /* iOS/iPadOS: <input type="time"> ignoriert teils width:100% -> erzwingen */
+    input[type="time"]{ width:100% !important; min-width:0 !important; display:block; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <h1>Protokoll Recorder</h1>
+        <div class="subtitle">Gesprächspartner → Audio → Notizen → Protokoll</div>
+      </div>
+
+      <div class="top-actions">
+        <button id="btnClose" class="icon-btn" type="button" aria-label="Schließen" title="Schließen">✕</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="grid" aria-label="Arbeitsbereiche">
+    <!-- 1) Gesprächspartner -->
+    <section class="card" id="cardMeta">
+      <h2>Gesprächspartner</h2>
+
+      <div class="two two-date-time">
+        <label>Datum <input id="date" type="date"></label>
+        <label>Uhrzeit <input id="time" type="time"></label>
+      </div>
+
+      <label>Ort <input id="location" type="text" placeholder="z.B. Karlsruhe"></label>
+      <label>Titel (optional) <input id="title" type="text" placeholder="Wenn leer: wird generiert"></label>
+
+      <label>Teilnehmer Kunde
+        <textarea id="participantsCustomer" rows="4" placeholder="- Herr ...&#10;- Frau ..."></textarea>
+      </label>
+
+      <label>Teilnehmer Sika / PCI / SCHÖNOX
+        <textarea id="participantsInternal" rows="4" placeholder="- ..."></textarea>
+      </label>
+
+      <p class="hint">Tipp: Namen je Zeile (mit oder ohne führendes "-").</p>
+    </section>
+
+    <!-- 2) Notizen -->
+    <section class="card" id="cardNotes">
+      <h2>Notizen</h2>
+      <textarea id="notes" rows="14" placeholder="Stichpunkte / Rohnotizen ... (Transkript landet hier und kann von dir bearbeitet werden)"></textarea>
+      <div class="row">
+        <button id="btnGenerate" class="primary" type="button">Protokoll erstellen</button>
+        <button id="btnReset" class="ghost" type="button">Felder leeren</button>
+      </div>
+      <p class="hint">Regeln: keine Emojis, keine Sternchen, Bulletpoints mit "-" (kurzer Bindestrich), nichts dazuerfinden.</p>
+    </section>
+
+    <!-- 3) Audio -->
+    <section class="card" id="cardAudio">
+      <h2>Audio</h2>
+
+      <div class="audio-row">
+        <button id="btnRecToggle" class="rec-btn" type="button">
+          <span class="dot" aria-hidden="true"></span>
+          <span class="label" id="recLabel">Aufnahme starten</span>
+        </button>
+
+        <div class="timer" aria-label="Aufnahmezeit">
+          <span id="recTimer">00:00</span>
+        </div>
+
+        <button id="btnClearAudio" class="ghost" type="button" disabled>Audio löschen</button>
+      </div>
+
+      <audio id="player" controls></audio>
+
+      <div class="upload-row">
+        <label class="file-btn">
+          iOS-Sprachnotiz auswählen
+          <input id="audioFile" type="file" accept="audio/*,.m4a,.mp3,.wav,.webm,.aac" />
+        </label>
+        <button id="btnTranscribe" class="primary" type="button" disabled>Transkribieren → Notizen</button>
+      </div>
+
+      <div class="status" id="audioStatus" aria-live="polite"></div>
+
+      <p class="hint">Hinweis: Aufnahme funktioniert je nach iOS/Safari-Version. Alternativ einfach eine Sprachnotiz (z.B. .m4a) auswählen und transkribieren.</p>
+    </section>
+
+    <!-- 4) Ergebnis -->
+    <section class="card" id="cardResult">
+      <h2>Ergebnis</h2>
+      <textarea id="result" rows="16" readonly></textarea>
+
+      <div class="row">
+        <button id="btnCopy" class="ghost" type="button" disabled>Text kopieren</button>
+        <button id="btnPDF" class="ghost" type="button" disabled>PDF erstellen</button>
+      </div>
+
+      <p class="hint">PDF: einfache, saubere Darstellung (Text aus Ergebnis).</p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <details class="api-details">
+      <summary>API-URL (optional anzeigen)</summary>
+      <div class="api-box">
+        <label for="apiBase" class="api-label">API-URL</label>
+        <input id="apiBase" type="url" placeholder="z.B. https://dein-worker.workers.dev" />
+        <button id="btnSaveApi" class="ghost" type="button">Speichern</button>
+      </div>
+      <small class="footnote">Lokale App (GitHub Pages) + API (Cloudflare Worker) - API-Key bleibt serverseitig.</small>
+    </details>
+  </footer>
+</body>
+</html>
