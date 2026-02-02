@@ -1,4 +1,7 @@
-// Protokoll Recorder - Frontend (stabil, iOS/Safari)
+document.addEventListener("DOMContentLoaded", () => {
+  const b = document.getElementById("copyBtn");
+  if (b) b.textContent = "Text kopieren (TEST-ULTRA-1)";
+});// Protokoll Recorder - Frontend (stabil, iOS/Safari)
 // - Fokus: Datei-Upload (Sprachmemo aus Kurzbefehlen) + Transkription + Protokoll-Generierung
 // - Keine Browser-Audioaufnahme (zu instabil auf iOS/PWA)
 // - Worker erwartet Multipart-Feldname: "file" (nicht "audio")
