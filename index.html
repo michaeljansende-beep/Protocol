@@ -5,142 +5,121 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Protokoll Recorder</title>
 
-  <!-- PWA / iOS App Icon (Root) -->
-  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-
-  <link rel="manifest" href="/manifest.webmanifest">
-  <meta name="theme-color" content="#0b1220">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Protokoll Recorder">
-
-  <!-- Styles & Scripts UNVERAENDERT -->
   <link rel="stylesheet" href="styles.css" />
+
+  <!-- PDF -->
   <script defer src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <script defer src="pdf.js"></script>
   <script defer src="app.js"></script>
 </head>
 
 <body>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="brand">
-        <h1>Protokoll Recorder</h1>
-        <div class="subtitle">Gesprächspartner → Audio → Notizen → Protokoll</div>
-      </div>
-      <button class="close-btn" type="button" aria-label="Schließen" title="Schließen" onclick="window.close()">×</button>
-    </div>
-  </header>
 
-  <main class="grid">
-    <section class="card">
-      <h2>Gesprächspartner</h2>
-
-      <label>Datum & Uhrzeit
-        <input id="dateTime" type="datetime-local" />
-      </label>
-
-      <input id="date" type="date" style="display:none" />
-      <input id="time" type="time" style="display:none" />
-
-      <label>Ort
-        <input id="location" type="text" placeholder="z.B. Karlsruhe" />
-      </label>
-
-      <label>Titel (optional)
-        <input id="title" type="text" placeholder="Wenn leer: wird generiert" />
-      </label>
-
-      <label>Teilnehmer Kunde
-        <textarea id="participantsCustomer" rows="3" placeholder="- Herr ...&#10;- Frau ..."></textarea>
-      </label>
-
-      <label>Teilnehmer Sika / PCI / SCHÖNOX
-        <textarea id="participantsInternal" rows="3" placeholder="- ..."></textarea>
-      </label>
-
-      <p class="hint">Tipp: Namen je Zeile (mit oder ohne '-').</p>
-    </section>
-
-    <section class="card">
-      <h2>Notizen</h2>
-      <textarea id="notes" rows="12" placeholder="Transkript oder eigene Notizen ..."></textarea>
-      <div class="row">
-        <button id="btnGenerate">Protokoll erstellen</button>
-        <button id="btnReset" class="ghost">Felder leeren</button>
-      </div>
-      <p class="hint">Regeln: keine Emojis, keine Sternchen, Bulletpoints mit '-' (kurzer Bindestrich), nichts dazuerfinden.</p>
-    </section>
-
-    <section class="card">
-  <h2>Audio</h2>
-
-  <div class="row">
-    <button id="btnRunShortcut" class="rec" type="button">Sprachmemo aufnehmen (Kurzbefehl)</button>
-    <button id="btnPickAudio" class="ghost" type="button">Audiodatei auswählen</button>
-    <button id="btnClearAudio" class="ghost" type="button" disabled>Audio löschen</button>
+<header class="topbar">
+  <div class="topbar-inner">
+    <h1>Protokoll Recorder</h1>
   </div>
+</header>
 
-  <div class="row" style="gap:10px; align-items:center;">
-    <label style="flex:1; min-width: 180px;">
-      Kurzbefehl-Name
-      <input id="shortcutName" type="text" value="Audio Für Protokoll App" placeholder="z.B. Protokoll Recorder Aufnahme" style="width:100%;" />
+<main class="grid">
+
+  <!-- Gesprächsdaten -->
+  <section class="card">
+    <h2>Gesprächsdaten</h2>
+
+    <label>Datum & Uhrzeit
+      <input id="dateTime" type="datetime-local" />
     </label>
-    <a id="shortcutInstallLink" href="https://www.icloud.com/shortcuts/9ed3160a1f8445f9b099f1bacc67df1f" target="_blank" rel="noopener" class="smalllink">Kurzbefehl öffnen</a>
-  </div>
 
-  <!-- Wichtig: KEIN capture-Attribut, sonst öffnet iOS ggf. Kamera. -->
-  <input id="fileAudio" type="file" accept="audio/*,.m4a,.mp3,.wav,.aac,.mp4" style="display:none" />
+    <label>Ort
+      <input id="location" type="text" placeholder="z. B. Karlsruhe" />
+    </label>
 
-  <audio id="player" controls></audio>
+    <label>Titel (optional)
+      <input id="title" type="text" placeholder="Wenn leer: wird automatisch erzeugt" />
+    </label>
 
-  <div class="row">
-    <button id="btnTranscribe" type="button" disabled>Transkribieren - Notizen</button>
-  </div>
+    <label>Teilnehmer Kunde
+      <textarea id="participantsCustomer" rows="3"></textarea>
+    </label>
 
-  <p class="hint">Tipp: Kurzbefehl ist voreingetragen. Falls du ihn umbenennst, hier anpassen. Alternativ Audio-Datei auswählen.</p>
-</section>
+    <label>Teilnehmer Sika / PCI / SCHÖNOX
+      <textarea id="participantsInternal" rows="3"></textarea>
+    </label>
+  </section>
 
-    <section class="card">
-      <h2>Ergebnis</h2>
-      <textarea id="result" rows="16" readonly placeholder="Hier erscheint das fertige Protokoll ..."></textarea>
-      <div class="row">
-        <button id="btnCopy" disabled>Text kopieren</button>
-        <button id="btnPDF" disabled>PDF erstellen</button>
-      </div>
-      <p class="hint">PDF: einfache, saubere Darstellung (Text aus Ergebnis).</p>
-    </section>
-  </main>
+  <!-- Audio -->
+  <section class="card">
+    <h2>Audio</h2>
 
-  <footer class="footer">
-    <div class="apiBar">
-      <label class="apiLabel" for="apiBase">API-URL (optional anzeigen)</label>
-      <input id="apiBase" type="url" placeholder="z.B. https://dein-worker.de" />
-      <button id="btnSaveApi">Speichern</button>
+    <div class="row">
+      <button id="btnRunShortcut" class="rec" type="button">
+        Sprachmemo aufnehmen (Kurzbefehl)
+      </button>
+
+      <button id="btnPickAudio" class="ghost" type="button">
+        Audiodatei auswählen
+      </button>
+
+      <button id="btnClearAudio" class="ghost" type="button" disabled>
+        Audio löschen
+      </button>
     </div>
-    <small>Lokale App (GitHub Pages) + API (Cloudflare Worker) - API-Key bleibt serverseitig.</small>
-  </footer>
 
-  <script>
-    (function () {
-      const dt = document.getElementById("dateTime");
-      const d = document.getElementById("date");
-      const t = document.getElementById("time");
-      if (!dt || !d || !t) return;
+    <!-- Datei-Auswahl (unsichtbar, wird per Button geöffnet) -->
+    <input
+      id="fileAudio"
+      type="file"
+      accept="audio/*,.m4a,.mp3,.wav,.aac,.mp4"
+      style="display:none"
+    />
 
-      function sync() {
-        const v = dt.value || "";
-        if (!v) { d.value = ""; t.value = ""; return; }
-        const parts = v.split("T");
-        d.value = parts[0] || "";
-        t.value = (parts[1] || "").slice(0,5);
-      }
-      dt.addEventListener("change", sync);
-      dt.addEventListener("input", sync);
-    })();
-  </script>
+    <audio id="player" controls></audio>
+
+    <div class="row">
+      <button id="btnTranscribe" type="button" disabled>
+        Transkribieren - Notizen
+      </button>
+    </div>
+  </section>
+
+  <!-- Notizen -->
+  <section class="card">
+    <h2>Notizen</h2>
+
+    <textarea
+      id="notes"
+      rows="12"
+      placeholder="Transkript prüfen und ggf. manuell anpassen …"
+    ></textarea>
+
+    <div class="row">
+      <button id="btnGenerate">Protokoll erstellen</button>
+      <button id="btnReset" class="ghost">Felder leeren</button>
+    </div>
+  </section>
+
+  <!-- Ergebnis -->
+  <section class="card">
+    <h2>Ergebnis</h2>
+
+    <textarea id="result" rows="14" readonly></textarea>
+
+    <div class="row">
+      <button id="btnCopy" disabled>Text kopieren</button>
+      <button id="btnPDF" disabled>PDF erstellen</button>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="env">
+    <label for="apiBase">API-URL</label>
+    <input id="apiBase" type="url" placeholder="https://…" />
+    <button id="btnSaveApi">Speichern</button>
+  </div>
+</footer>
+
 </body>
 </html>
