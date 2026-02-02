@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const b = document.getElementById("copyBtn");
-  if (b) b.textContent = "Text kopieren (TEST-ULTRA-1)";
+  const b = document.getElementById("btnCopy");
+  if (b) b.textContent = "Text kopieren (TEST OK)";
+});
 });// Protokoll Recorder - Frontend (stabil, iOS/Safari)
 // - Fokus: Datei-Upload (Sprachmemo aus Kurzbefehlen) + Transkription + Protokoll-Generierung
 // - Keine Browser-Audioaufnahme (zu instabil auf iOS/PWA)
