@@ -40,7 +40,7 @@
 
   // --- Settings ---
   const STORAGE_KEY_API = "protocol_api_base";
-  const DEFAULT_SHORTCUT_NAME = "Audio Für Protokoll App";
+  const DEFAULT_SHORTCUT_NAME = "Protokoll App";
 
   function normalizeApiBase(v) {
     v = (v || "").trim();
